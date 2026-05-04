@@ -250,24 +250,24 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{3.4 DeepSets 函数映射解析}
-    公式 $f(X) = \rho( \sum_{x \in X} \phi(x) )$ 中的三个核心算子映射及其职责：
+\begin{frame}{3.4 DeepSets 函数映射解析 (输入与输出)}
+    公式 $f(X) = \rho( \sum_{x \in X} \phi(x) )$ 中的三个核心算子如何处理张量流：
     \begin{itemize}
-        \setlength{\itemsep}{10pt}
-        \item \textbf{$\phi$ 映射 (实例级特征提取网络)：} 
+        \setlength{\itemsep}{8pt}
+        \item \textbf{$\phi$ 映射 (特征提取网络)：} 
         \begin{itemize}
-            \item \textbf{机制：} 独立且非线性地映射集合 $X$ 中的每一个神经元特征 $x$。
-            \item \textbf{作用：} 将低级的原始权重参数转换为高维的隐空间表示。同层各个神经元共享 $\phi$ 网络的参数。
+            \item \textbf{输入 (Input):} $x_k \in \mathbb{R}^{d}$，即第 $k$ 个神经元原始参数拼接成的 $d$ 维向量。
+            \item \textbf{输出 (Output):} $h_k \in \mathbb{R}^{m}$。$\phi$ 将每一个神经元独立映射到一个 $m$ 维的隐特征空间中，同层神经元共享网络参数。
         \end{itemize}
         \item \textbf{$\sum$ 算子 (对称聚合操作)：} 
         \begin{itemize}
-            \item \textbf{机制：} 对所有神经元经 $\phi$ 提取的隐层表示进行求和。
-            \item \textbf{作用：} 利用加法交换律，该操作在数学上\textbf{严格保证了排列不变性 (Permutation Invariance)}，原生抹除了神经元的排列位置噪音。
+            \item \textbf{输入 (Input):} 该层 $n$ 个神经元输出的集合 $\{h_1, h_2, \dots, h_n\}$。
+            \item \textbf{输出 (Output):} 层级全局表示 $z = \sum_{k=1}^n h_k \in \mathbb{R}^{m}$。利用加法交换律，将 $n$ 个向量坍缩为 $1$ 个向量，\textbf{彻底抹除了维度 $n$ 的排列顺序}。
         \end{itemize}
-        \item \textbf{$\rho$ 映射 (全局读出网络)：}
+        \item \textbf{$\rho$ 映射 (全局预测网络)：}
         \begin{itemize}
-            \item \textbf{机制：} 接收经对称聚合后得到的层级全局表示 (Global Representation)。
-            \item \textbf{作用：} 将脱离了排列约束的纯净层级特征，映射至最终的属性判别空间，输出模型具备特定宏观属性的概率。
+            \item \textbf{输入 (Input):} 将所有隐藏层得到的全局表示拼接成的一个长特征向量 $\mathcal{F} = [z^{(1)}, z^{(2)}, \dots] \in \mathbb{R}^{M}$。
+            \item \textbf{输出 (Output):} 标量 $p \in [0, 1]$。$\rho$ 网络接收这个已经没有排列噪音的纯净向量，输出该模型具有特定宏观属性的概率。
         \end{itemize}
     \end{itemize}
 \end{frame}
