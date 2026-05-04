@@ -1,0 +1,111 @@
+\documentclass{beamer}
+
+% 引入必要的宏包
+\usepackage[utf8]{inputenc}
+\usepackage{ctex} % 支持中文排版
+\usepackage{amsmath}
+
+% 设置 Beamer 主题和配色
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% 幻灯片首页信息
+\title{决策树是非线性模型的数学证明}
+\subtitle{基于线性算子定义的严格推导}
+\author{演示者}
+\date{\today}
+
+\begin{document}
+
+% 封面页
+\frame{\titlepage}
+
+% 第1页：线性的严格定义
+\begin{frame}
+\frametitle{1. 线性的严谨数学定义}
+一个模型或函数 $f(x)$ 是线性的，当且仅当对于任意标量 $\alpha$ 和任意输入特征向量 $x, y$，严格满足以下两个条件：
+\vspace{0.5cm}
+\begin{itemize}
+    \item \textbf{齐次性 (Homogeneity):} 
+    $$f(\alpha x) = \alpha f(x)$$
+    \item \textbf{可加性 (Additivity):} 
+    $$f(x + y) = f(x) + f(y)$$
+\end{itemize}
+\vspace{0.5cm}
+\begin{block}{证明思路}
+采用\textbf{反证法}：只要构造出一组特定输入，证明决策树违反上述任意一个条件，即可证明其为非线性模型。
+\end{block}
+\end{frame}
+
+% 第2页：决策树的数学表达
+\begin{frame}
+\frametitle{2. 决策树的数学表达式}
+决策树本质上是特征空间上的\textbf{分段常数函数}（阶跃函数的组合）。其预测函数形式化表示为：
+$$f(x) = \sum_{m=1}^{M} c_m \mathbb{I}(x \in R_m)$$
+\vspace{0.2cm}
+\textbf{其中：}
+\begin{itemize}
+    \item $M$: 叶子节点的总数量
+    \item $R_m$: 第 $m$ 个叶子节点对应的特征空间划分区域
+    \item $c_m$: 落在该区域内的样本的常数预测值
+    \item $\mathbb{I}(\cdot)$: 指示函数（条件成立为 1，否则为 0）
+\end{itemize}
+\end{frame}
+
+% 第3页：证明齐次性失效
+\begin{frame}
+\frametitle{3. 构造性证明：破坏齐次性}
+假设有一棵单层回归决策树模型：
+\begin{equation*}
+f(x) =
+\begin{cases}
+  10 & \text{if } x \leq 5 \\
+  20 & \text{if } x > 5
+\end{cases}
+\end{equation*}
+
+我们来验证齐次性 $f(\alpha x) = \alpha f(x)$。令输入 $x = 2$，标量 $\alpha = 3$：
+\vspace{0.2cm}
+\begin{itemize}
+    \item \textbf{等式左侧：} $f(\alpha x) = f(3 \times 2) = f(6)$。因为 $6 > 5$，所以 \alert{$f(6) = 20$}。
+    \item \textbf{等式右侧：} $\alpha f(x) = 3 \times f(2)$。因为 $2 \leq 5$，所以 $f(2) = 10$，结果为 $3 \times 10 = \alert{30}$。
+\end{itemize}
+\vspace{0.3cm}
+显然 $20 \neq 30$，\textbf{齐次性假设不成立}。
+\end{frame}
+
+% 第4页：证明可加性失效
+\begin{frame}
+\frametitle{4. 构造性证明：破坏可加性}
+沿用上述同一棵决策树：
+\begin{equation*}
+f(x) =
+\begin{cases}
+  10 & \text{if } x \leq 5 \\
+  20 & \text{if } x > 5
+\end{cases}
+\end{equation*}
+
+我们来验证可加性 $f(x + y) = f(x) + f(y)$。令输入 $x = 2, y = 2$：
+\vspace{0.2cm}
+\begin{itemize}
+    \item \textbf{等式左侧：} $f(x + y) = f(2 + 2) = f(4)$。因为 $4 \leq 5$，所以 \alert{$f(4) = 10$}。
+    \item \textbf{等式右侧：} $f(x) + f(y) = f(2) + f(2) = 10 + 10 = \alert{20}$。
+\end{itemize}
+\vspace{0.3cm}
+显然 $10 \neq 20$，\textbf{可加性假设同样不成立}。
+\end{frame}
+
+% 第5页：总结
+\begin{frame}
+\frametitle{5. 最终结论}
+\begin{block}{核心数学结论}
+由于决策树模型的预测算子既不满足齐次性，也不满足可加性，因此在严格的数学定义下，\textbf{决策树是一种非线性模型}。
+\end{block}
+\vspace{0.5cm}
+\begin{block}{物理与几何意义}
+公式中的指示函数 $\mathbb{I}(\cdot)$ 在分裂点处会导致一阶导数不存在（发生跳变）。这种不连续的“阶跃”特质，正是决策树能够无需手动构造多项式，即可天然拟合高阶交互特征和非线性边界的根本原因。
+\end{block}
+\end{frame}
+
+\end{document}
