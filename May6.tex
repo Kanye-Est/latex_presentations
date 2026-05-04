@@ -197,21 +197,17 @@
 \section{3. 破局之道：设计排列不变表示}
 % ==========================================
 
-\begin{frame}{3.1 解决方案一：强制节点排序 (Canonical Form)}
-    \textbf{核心思路：人为制定规则，把打乱的神经元强行“对齐”。}
+\begin{frame}{3.1 解决方案一：强制节点排序 (大白话解析)}
+    \textbf{核心思路：既然每次训练出来的神经元位置都是乱的，那我们在展平前，干脆强行用数学规则把它们“按资排辈”。}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{算法 1 深度拆解：}
-            \begin{itemize}
-                \item \textbf{计算指标：} 遍历第 $t$ 层，计算节点特征 $\mathcal{M}$ (如权范数) 并得出排序索引 $\sigma$ (行 4-6)。
-                \item \textbf{重排与联动补偿 (关键)：}
-                \begin{itemize}
-                    \item \textbf{行 7：} $h'_t \leftarrow \sigma(h_t)$，对当前层的神经元进行\textbf{行交换}。
-                    \item \textbf{行 9：} $w^{t+1}_{j*} \leftarrow \sigma(w^{t+1}_{j*})$，必须对下一层的对应权重进行\textbf{列交换}，以保证网络功能等效！
-                \end{itemize}
-                \item \textbf{局限：} 严重依赖启发式指标，网络较深时容易产生排序抖动。
-            \end{itemize}
+            \textbf{算法 1 到底在干什么？}
+            \begin{enumerate}
+                \item \textbf{制定排序规则：} 怎么衡量神经元大小？文章提出了一个经验做法：计算每个神经元所有输入权重的绝对值之和（L1范数）。这相当于给每个神经元算出了一个\textbf{“身价”}。
+                \item \textbf{强制重排：} 按照身价从大到小，把神经元的位置重新上下排列（执行了数学上的\textbf{行交换}）。
+                \item \textbf{擦屁股补偿：} 神经元位置变了，为了不让网络逻辑错乱，下一层接收数据的权重矩阵也必须做\textbf{完全同步的列交换}！
+            \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
@@ -221,21 +217,51 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.2 解决方案二：引入 DeepSets 抹除顺序}
-    \textbf{核心思路：既然排不好序，就干脆把网络层视为“无序集合 (Set)”。}
+\begin{frame}{3.2 排序法的致命弱点：极其脆弱的稳定性}
+    \textbf{为什么实操中这个看起来很合理的方法被抛弃了？因为它的数值稳定性极差。}
     
-    Zaheer 等人的 DeepSets 理论证明：任何定义在集合上的排列不变函数，都可以分解为：
+    \begin{itemize}
+        \setlength{\itemsep}{8pt}
+        \item \textbf{微小扰动被无限放大：} 假设神经元 A 的权重和是 \textbf{1.501}，神经元 B 是 \textbf{1.500}。按规则，A 应该排在 B 之前。
+        \item \textbf{“排序抖动” (Sorting Jitter)：} 由于深度学习训练天然存在微小的随机性，在另一个结构相同的影子模型中，A 的权和可能变成了 \textbf{1.499}，B 变成了 \textbf{1.502}。
+        \item \textbf{瞬间反转：} 仅仅因为 \textbf{0.003} 的数值波动，导致 A 和 B 的先后顺序瞬间颠倒！
+        \item \textbf{灾难后果：} 这种颠倒会引发连锁反应，导致最终展平的一维数组发生大面积的错位。元分类器依然会被“距离欺骗”。
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=破局启示]
+        “排序”本质上还是在向“顺序”妥协。我们需要一种在数学上\textbf{原生支持无序}的方案，彻底告别排序！ $\rightarrow$ \textbf{DeepSets}
+    \end{tcolorbox}
+\end{frame}
+
+\begin{frame}{3.3 解决方案二：引入 DeepSets 构造排列不变表示}
+    \textbf{核心思想：放弃在欧氏空间中对齐参数矩阵，转而将神经网络的每一层建模为神经元特征的“无序集合 (Set)”。}
+    
+    基于 Zaheer 等人提出的 DeepSets 定理，任何定义在集合上的排列不变函数均可分解为如下形式：
     \begin{equation}
         f(X) = \rho\left( \sum_{x \in X} \phi(x) \right)
     \end{equation}
+    
+    \textbf{网络架构与映射解析：}
     \begin{itemize}
-        \item $\phi(x)$：特征提取网络，独立作用于集合中的每个元素。
-        \item $\sum$：\textbf{对称聚合操作}。利用加法交换律 ($a+b=b+a$) 彻底抹除元素的顺序！
-        \item $\rho(\cdot)$：读出网络，接收聚合后的总体特征，输出属性预测。
+        \item \textbf{$\phi$ 映射 (实例级特征提取网络)：} 
+        \begin{itemize}
+            \item \textbf{输入 ($x \in X$)：} 第 $i$ 层的单个神经元表示。具体为该神经元的入边权重向量、出边权重向量及偏置拼接而成的局部特征向量。
+            \item \textbf{输出：} 独立映射集合中的每个元素，输出高维隐空间表示。同层各个神经元共享 $\phi$ 网络的参数。
+        \end{itemize}
+        \item \textbf{$\sum$ 算子 (对称聚合操作)：} 
+        \begin{itemize}
+            \item 对所有神经元的隐层表示进行求和。利用加法交换律，该操作在数学上原生抹除了元素的空间位置属性，实现真正的\textbf{排列不变性 (Permutation Invariance)}。
+        \end{itemize}
+        \item \textbf{$\rho$ 映射 (全局读出网络)：}
+        \begin{itemize}
+            \item \textbf{输入：} 经对称聚合后得到的层级全局表示 (Global Representation)，该向量已脱离原始排列约束。
+            \item \textbf{输出：} 映射至属性判别空间，输出目标模型具备特定宏观属性 $P$ 的概率。
+        \end{itemize}
     \end{itemize}
 \end{frame}
 
-\begin{frame}{3.3 DeepSets 架构工作流 (Figure 5)}
+\begin{frame}{3.4 DeepSets 架构工作流 (Figure 5)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
             \textbf{化矩阵为“无序集合”：}
@@ -254,7 +280,7 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.4 代码化理解：DeepSets 算法流程}
+\begin{frame}{3.5 代码化理解：DeepSets 算法流程}
     \begin{columns}
         \begin{column}{0.45\textwidth}
             \textbf{算法 2 与架构图的对应关系：}
