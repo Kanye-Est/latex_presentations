@@ -197,21 +197,21 @@
 \section{3. 破局之道：设计排列不变表示}
 % ==========================================
 
-\begin{frame}{3.1 解决方案一：强制节点排序 (大白话解析)}
+\begin{frame}{3.1 解决方案一：强制节点排序 (视觉化图解)}
     \textbf{核心思路：既然每次训练出来的神经元位置都是乱的，那我们在展平前，干脆强行用数学规则把它们“按资排辈”。}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{算法 1 到底在干什么？}
+            \textbf{如图 4 所示的 Canonical Form 转换：}
             \begin{enumerate}
-                \item \textbf{制定排序规则：} 怎么衡量神经元大小？文章提出了一个经验做法：计算每个神经元所有输入权重的绝对值之和（L1范数）。这相当于给每个神经元算出了一个\textbf{“身价”}。
-                \item \textbf{强制重排：} 按照身价从大到小，把神经元的位置重新上下排列（执行了数学上的\textbf{行交换}）。
-                \item \textbf{擦屁股补偿：} 神经元位置变了，为了不让网络逻辑错乱，下一层接收数据的权重矩阵也必须做\textbf{完全同步的列交换}！
+                \item \textbf{制定排序规则：} 计算每个神经元所有输入权重的和（或绝对值之和）。如图(a)中，$n_1^1$ 的权和为 $4.0-0.5+2.0=5.5$，$n_2^1$ 为 $3.0+1.0=4.0$，$n_3^1$ 为 $2.0-1.0=1.0$。
+                \item \textbf{强制重排：} 按照身价从大到小，对神经元位置进行行交换。图(b)将原 $n_2^1$ 和 $n_1^1$ 进行了互换。
+                \item \textbf{同步补偿：} 神经元位置变了，为防止网络逻辑错乱，下一层接收数据的权重矩阵也必须做\textbf{完全同步的列交换}（如右图的 $0.3$ 和 $2.4$ 连线也跟着互换了）！
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-                \includegraphics[width=\textwidth]{fig:alg1.png}
+                \includegraphics[width=\textwidth]{fig:sort.png}
             \end{center}
         \end{column}
     \end{columns}
