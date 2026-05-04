@@ -318,36 +318,41 @@
     攻击的实施是一个“元学习 (Meta-learning)”过程。
     
     \vspace{0.2cm}
-    % --- 图片占位符 ---
-    \begin{center}
-    \begin{tikzpicture}
-        \draw[thick, dashed, fill=green!5, rounded corners] (0,0) rectangle (11, 5.0);
-        \node at (5.5, 3.5) {\Large \textbf{\textcolor{black!70}{[请截取论文中整体的 Attack Pipeline/Architecture 图]}}};
-        \node at (5.5, 2.2) {\small \textbf{讲解重点（结合图片指引）：}};
-        \node[align=left] at (5.5, 1.2) {
-            1. \textbf{Data Generation:} 划分带属性 ($D_1$) 和不带属性 ($D_0$) 的辅助数据集。\\
-            2. \textbf{Shadow Training:} 批量训练大量结构相同的影子模型 (Shadow Models)。\\
-            3. \textbf{Meta Training:} 提取权重 -> 经过 DeepSets 提纯 -> 训练二分类元模型。\\
-            4. \textbf{Inference:} 对 Target Model 进行一键推断。
-        };
-    \end{tikzpicture}
-    \end{center}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{讲解重点（结合右图指引）：}
+            \begin{enumerate}
+                \item \textbf{Data Generation:} 划分带属性 ($D_1$) 和不带属性 ($D_0$) 的辅助数据集。
+                \item \textbf{Shadow Training:} 批量训练大量结构相同的影子模型 (Shadow Models)。
+                \item \textbf{Meta Training:} 提取权重 $\rightarrow$ 经过 DeepSets 提纯 $\rightarrow$ 训练二分类元模型。
+                \item \textbf{Inference:} 对 Target Model 进行一键推断。
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=\textwidth,height=0.65\textheight,keepaspectratio]{fig:attack.png}
+            \end{center}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{4.2 实验结果：降维打击 (Evaluation: Baseline vs. DeepSets)}
-    % --- 图片占位符 ---
-    \begin{center}
-    \begin{tikzpicture}
-        \draw[thick, dashed, fill=yellow!10, rounded corners] (0,0) rectangle (11, 4.5);
-        \node at (5.5, 3.0) {\Large \textbf{\textcolor{black!80}{[请截取论文中展示准确率对比的表格 (Tables) 或图表]}}};
-        \node at (5.5, 1.8) {\small \textbf{讲解重点分析：}};
-        \node[align=left] at (5.5, 0.8) {
-            $\bullet$ \textbf{Flatten Baseline:} 准确率往往徘徊在 50\%-60\%（基本等同于瞎猜）。\\
-            $\bullet$ \textbf{Node Sorting:} 准确率显著提升至 75\%-85\%，证明解决排列问题是有效的。\\
-            $\bullet$ \textbf{DeepSets:} 达到 \textbf{85\%-100\%} 的极高准确率，且对影子模型数量的需求更小！
-        };
-    \end{tikzpicture}
-    \end{center}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{讲解重点分析：}
+            \begin{itemize}
+                \setlength{\itemsep}{10pt}
+                \item \textbf{Flatten Baseline:} 准确率往往徘徊在 50\%-60\%（基本等同于瞎猜）。
+                \item \textbf{Node Sorting:} 准确率显著提升至 75\%-85\%，证明解决排列问题是有效的。
+                \item \textbf{DeepSets:} 达到 \textbf{85\%-100\%} 的极高准确率，且对影子模型数量的需求更小！
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=\textwidth,height=0.7\textheight,keepaspectratio]{fig:result.png}
+            \end{center}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{4.3 深度案例一：微笑检测泄露颜值 (Case Study 1)}
