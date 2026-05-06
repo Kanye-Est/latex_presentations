@@ -38,22 +38,51 @@
 \end{frame}
 
 % ==========================================
-\section{1. 背景与威胁模型 (Background \& Threat Model)}
+\section{1. 前置知识 (Preliminaries)}
 % ==========================================
 
-\begin{frame}{1.1 跨孤岛联邦学习与威胁模型 (Threat Model)}
+\begin{frame}{1.1 跨孤岛联邦学习 (Cross-Silo FL)}
+    \begin{itemize}
+        \item \textbf{定义：} 多个机构（如银行、医院）在不交换原始数据的情况下，协作训练一个共享模型。
+        \item \textbf{交互流程：} 
+        \begin{enumerate}
+            \item \textbf{本地训练：} 客户端利用本地数据计算梯度 $\nabla L(x, y; \theta)$。
+            \item \textbf{参数同步：} 客户端上传模型更新（梯度或权重差）至中心服务器。
+            \item \textbf{全局聚合：} 服务器执行 FedAvg（如权重平均）更新全局模型。
+        \end{enumerate}
+        \item \textbf{核心特征：} 参与方数量少（Silo）、计算能力强、数据量大。
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{1.2 差分隐私 (Differential Privacy) 在 FL 中的应用}
+    为了防止梯度泄露个体隐私，通常引入 \textbf{DP-SGD} 防御机制：
+    
+    \begin{tcolorbox}[colback=blue!5,colframe=myblue,title=DP-SGD 核心步骤]
+        \begin{enumerate}
+            \item \textbf{裁剪 (Clipping)：} 限制每个梯度向量的 $\ell_2$ 范数，防止单个极端样本主导更新。
+            \item \textbf{加噪 (Noise Addition)：} 在聚合梯度中注入高斯噪音 $n \sim \mathcal{N}(0, \sigma^2 C^2)$。
+        \end{enumerate}
+    \end{tcolorbox}
+    
+    \textbf{隐私承诺：} 攻击者无法以显著概率判断训练集中是否包含“张三”这一条特定记录。
+\end{frame}
+
+% ==========================================
+\section{2. 问题陈述与威胁模型 (Problem Statement)}
+% ==========================================
+
+\begin{frame}{2.1 什么是分布泄露？ (Problem Definition)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{传统 FL 的隐私错觉：}
+            \textbf{攻击者的目标：} \\
+            推断出参与方 $k$ 的\textbf{全局统计分布}，包括：
             \begin{itemize}
-                \item 各参与方（Party 1...N）仅上传模型更新，原始数据不出本地。
+                \item \textbf{特征分布 $P(X)$：} 数据在各特征维度上的均值、方差。
+                \item \textbf{标签分布 $P(Y)$：} 训练集中正负样本的真实比例（极具商业价值）。
             \end{itemize}
             \vspace{0.2cm}
-            \textbf{核心威胁 (Honest-but-curious Server)：}
-            \begin{itemize}
-                \item \textbf{非独立同分布 (Non-IID)：} 如图所示，Party 1 和 Party N 的本地数据分布存在极大差异（分别在左侧和右侧）。
-                \item \textbf{分布泄露：} 好奇的中心服务器在聚合全局模型时，通过暗中分析各方上传的特定梯度，即可反向推断出各参与方高度机密的\textbf{本地数据分布特征}。
-            \end{itemize}
+            \textbf{为什么是盲区？} \\
+            DP 保护了个体，但为了保证模型可用性，它必须保留数据的统计特性。
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
@@ -63,59 +92,46 @@
     \end{columns}
 \end{frame}
 
-% ==========================================
-\section{2. 动机与挑战：从参数到梯度 (Motivation)}
-% ==========================================
-
-\begin{frame}{2.1 战场转移：从单一白盒到联邦交互}
-    与针对单一白盒模型的静态权重推断不同，本篇论文面临着全新的挑战环境：
-    
-    \vspace{0.3cm}
+\begin{frame}{2.2 诚实但好奇的服务器 (Threat Model)}
     \begin{itemize}
-        \setlength{\itemsep}{10pt}
-        \item \textbf{动态的梯度视角：} 攻击者不再拥有最终的静态模型权重，而是只能观察到训练过程中每一轮的\textbf{动态梯度更新 ($\Delta W$)}。
-        \item \textbf{无先验知识要求 (Zero Prior Knowledge)：} 传统的属性推断通常需要攻击者具备辅助数据集来训练影子模型，而本文致力于在无辅助数据的情况下直接恢复分布。
+        \item \textbf{服务器能力：} 
+        \begin{itemize}
+            \item 观察每一轮客户端上传的梯度更新。
+            \item 知道当前的全局模型参数 $\theta_t$。
+            \item \textbf{无先验知识：} 攻击者没有参与方的辅助数据（无影子数据）。
+        \end{itemize}
+        \item \textbf{防御假设：} 客户端可能开启了裁剪和加噪形式的差分隐私防御。
     \end{itemize}
 \end{frame}
 
-\begin{frame}{2.2 为什么差分隐私 (DP) 防不住分布泄露？}
-    工业界通常采用 \textbf{DP-SGD} 来防御反演攻击，即在梯度中注入高斯噪音隐藏个体贡献。
-    
-    \begin{columns}
-        \begin{column}{0.45\textwidth}
-            \textbf{DP 的盲区 (DP's Blind Spot)：}
-            \begin{itemize}
-                \item \textbf{微观保护：} DP 严格保护了\textbf{特定个体}不被识别。
-                \item \textbf{宏观暴露：} DP 的理论基础在于\textbf{保留群体的统计可用性}。这意味着，代表宏观统计规律的“数据分布”，在加上 DP 噪音后，依然能被强力的推断算法重构出来！
-            \end{itemize}
-        \end{column}
-        \begin{column}{0.55\textwidth}
-            \begin{center}
-            \begin{tikzpicture}
-                \draw[thick, dashed, fill=blue!5, rounded corners] (0,0) rectangle (7, 4.0);
-                \node at (3.5, 2.5) {\Large \textbf{\textcolor{myblue}{[请插入 DP 盲区示意图]}}};
-                \node at (3.5, 1.5) {\small \textbf{建议：} 论文中展示个体保护};
-                \node at (3.5, 1.0) {\small 与全局分布泄露对比的图表。};
-            \end{tikzpicture}
-            \end{center}
-        \end{column}
-    \end{columns}
+% ==========================================
+\section{3. 分布推断攻击方案 (Attack Methodology)}
+% ==========================================
+
+\begin{frame}{3.1 攻击分类：根据模型性质因地制宜}
+    \begin{tcolorbox}[colback=white,colframe=mygreen,title=两套推断机制]
+    \begin{itemize}
+        \item \textbf{方案 A：针对可微分模型 (如神经网络)}
+        \begin{itemize}
+            \item 利用梯度作为优化约束，提出 \textbf{PGDA (梯度分布攻击)}。
+            \item 核心思想：寻找一组虚拟分布，使其产生的梯度与观测梯度最匹配。
+        \end{itemize}
+        \item \textbf{方案 B：针对不可微分模型 (如决策树、逻辑回归)}
+        \begin{itemize}
+            \item 无法通过梯度求导，攻击者通过分析参数更新的数值特征，建立统计关联进行推断。
+        \end{itemize}
+    \end{itemize}
+    \end{tcolorbox}
 \end{frame}
 
-% ==========================================
-\section{3. 核心攻击方法论 (Attack Methodology)}
-% ==========================================
-
-\begin{frame}{3.1 核心攻击方法：PGDA 工作流}
-    论文提出基于优化的 \textbf{PGDA (Property/Prior Gradient Distribution Attack)} 框架来逆推数据分布。
-    
+\begin{frame}{3.2 PGDA 工作流：如何从梯度逆推分布？}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{攻击机制解析：}
+            \textbf{PGDA (Property/Prior Gradient Distribution Attack)：}
             \begin{enumerate}
-                \item \textbf{前向传播提取特征：} 攻击者初始化虚拟的输入数据分布 (Input data)，分别将其输入到目标客户端的局部模型 (Local model) 与全局模型 (Global model) 中，得到相应的输出表示 $z_k$ 与 $z_G$。
-                \item \textbf{构建损失函数：} 计算两者的差异 $\text{Loss}(z_k, z_G)$，该损失本质上度量了虚拟数据分布产生的梯度与截获的真实梯度之间的距离。
-                \item \textbf{反向传播优化数据：} 通过 Backpropagation，不断更新优化虚拟输入数据的分布参数，直至其产生的梯度与客户端真实上传的梯度一致，从而实现分布重构。
+                \item \textbf{特征重构优化：} 初始化虚拟输入数据分布。
+                \item \textbf{梯度匹配损失：} 计算虚拟数据产生的梯度与截获梯度的距离。
+                \item \textbf{反向传播更新：} 不断调整虚拟数据的分布参数，使 Loss 极小化。
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
@@ -126,50 +142,38 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.2 PGDA 核心：基于梯度匹配的分布优化}
-    \begin{tcolorbox}[colback=yellow!5,colframe=orange,title=PGDA 的数学本质]
-        攻击者并非直接还原数据，而是求解一个\textbf{梯度匹配 (Gradient Matching)} 问题。
-    \end{tcolorbox}
-    
-    \textbf{1. 目标函数 (Objective Function)：}
-    攻击者通过最小化以下优化目标来逼近真实分布：
+\begin{frame}{3.3 PGDA 核心：基于梯度匹配的数学优化}
+    攻击者求解以下优化问题来逼近真实分布：
     \begin{equation}
         \min_{\mathbf{D}_{dummy}} \mathcal{L}_{match} = \left\| \nabla W(\mathbf{D}_{dummy}, \theta) - \nabla W_{intercepted} \right\|^2 + \alpha \cdot \mathcal{R}(\mathbf{D}_{dummy})
     \end{equation}
     
-    \textbf{2. 关键算子解析：}
     \begin{itemize}
-        \item $\nabla W_{intercepted}$：中心服务器从客户端截获的真实梯度更新。
-        \item $\mathbf{D}_{dummy}$：攻击者构造的虚拟数据分布。
-        \item $\mathcal{R}(\cdot)$：正则化项，用于保证生成的分布符合现实约束。
+        \item $\nabla W_{intercepted}$：截获的真实梯度更新。
+        \item $\mathbf{D}_{dummy}$：攻击者构造的虚拟数据分布参数。
+        \item $\mathcal{R}(\cdot)$：正则化项，用于确保生成分布的合理性。
     \end{itemize}
     
-    \textbf{结论：} 当梯度完全匹配时，虚拟分布 $\mathbf{D}_{dummy}$ 即可代表客户端的真实宏观分布，攻击者从而窃取了隐私。
+    \textbf{关键洞察：} 该优化过程不涉及具体样本还原，只关注分布级别的参数。
 \end{frame}
 
 % ==========================================
 \section{4. 实验评估与防御分析 (Evaluation \& Defense)}
 % ==========================================
 
-\begin{frame}{4.1 突破最强防御：DP-SGD 实验验证}
-    \textbf{本论文最具冲击力的实证结果之一：}
-    
+\begin{frame}{4.1 击穿最强防御：为什么 DP 失效了？}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{防御失效：}
+            \textbf{实验观察：}
             \begin{itemize}
-                \item 在客户端开启 DP-SGD 并注入不同级别的隐私噪音（不同 $\epsilon$ 值）后执行攻击。
-                \item \textbf{结论：} 尽管噪音足以掩盖单一样本特征，但由于“分布”是全局统计量，对零均值噪音具有天然的鲁棒性。攻击者依然能精准测算出客户端数据分布。
+                \item \textbf{个体的干扰：} 噪音很大时，单个样本的特征被完全模糊。
+                \item \textbf{总体的抗噪性：} “分布”是成千上万个样本的平均统计特性。
+                \item \textbf{结论：} 零均值的高斯噪音在聚合过程中会相互抵消，宏观分布特征对 DP 噪音具有天然的鲁棒性。
             \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-            \begin{tikzpicture}
-                \draw[thick, dashed, fill=gray!10, rounded corners] (0,0) rectangle (7, 4.5);
-                \node at (3.5, 2.5) {\Large \textbf{\textcolor{black}{[请插入 DP 噪音级别与误差曲线图]}}};
-                \node at (3.5, 1.5) {\small \textbf{解读：} 展示即使隐私预算 $\epsilon$ 很小，};
-                \node at (3.5, 1.0) {\small 分布推断的准确率依然居高不下。};
-            \end{tikzpicture}
+                \includegraphics[width=\textwidth]{fig:result.png}
             \end{center}
         \end{column}
     \end{columns}
@@ -179,31 +183,17 @@
 \section{5. 总结与启示 (Conclusion)}
 % ==========================================
 
-\begin{frame}{5.1 研究启示与未来防御方向}
+\begin{frame}{5.1 研究启示}
     \begin{tcolorbox}[colback=blue!5,colframe=myblue,title=核心结论 (Takeaways)]
         \begin{itemize}
-            \item \textbf{盲点暴露：} 现有的联邦学习隐私保护（如 DP）主要聚焦于“微观个体”，严重忽视了跨孤岛场景下“宏观分布”泄露的商业危害。
-            \item \textbf{梯度的双刃剑：} 梯度不仅传递了模型优化的方向，也潜藏了丰富的数据全局统计特征。
+            \item \textbf{隐私保护的错位：} 跨孤岛场景下，“宏观分布”往往比“微观记录”更具商业敏感性，但现有防御却无能为力。
+            \item \textbf{PGDA 的威力：} 首次证明了无需任何辅助数据，服务器就能以极高精度还原本地数据分布。
         \end{itemize}
     \end{tcolorbox}
-    
-    \vspace{0.3cm}
-    \textbf{未来的潜在防御思路：}
-    \begin{itemize}
-        \item 针对梯度的分布混淆技术 (Distribution Obfuscation)。
-        \item 结合安全多方计算 (SMPC) 的高级聚合策略。
-    \end{itemize}
 \end{frame}
 
 \begin{frame}
     \begin{center}
-        \Huge \textbf{Q \& A} \\
-        \vspace{1cm}
-        \Large 感谢聆听！
-    \end{center}
-\end{frame}
-
-\end{document}r}
         \Huge \textbf{Q \& A} \\
         \vspace{1cm}
         \Large 感谢聆听！
