@@ -48,7 +48,7 @@
         \begin{enumerate}
             \item \textbf{本地训练：} 客户端利用本地数据计算梯度 $\nabla L(x, y; \theta)$。
             \item \textbf{参数同步：} 客户端上传模型更新（梯度或权重差）至中心服务器。
-            \item \textbf{全局聚合：} 服务器执行 FedAvg（如权重平均）更新全局模型。
+            \item \textbf{全局聚合：} 服务器执行聚合算法（如 FedAvg）更新全局模型。
         \end{enumerate}
         \item \textbf{核心特征：} 参与方数量少（Silo）、计算能力强、数据量大。
     \end{itemize}
@@ -86,7 +86,7 @@
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-                \includegraphics[width=\textwidth]{fig_fl_threat.png}
+                \includegraphics[width=\textwidth]{TKDE2024pic/fig_fl_threat.png}
             \end{center}
         \end{column}
     \end{columns}
@@ -105,56 +105,88 @@
 \end{frame}
 
 % ==========================================
-\section{3. 分布推断攻击方案 (Attack Methodology)}
+\section{3. 核心攻击方法论 (Attack Methodology)}
 % ==========================================
 
-\begin{frame}{3.1 攻击分类：根据模型性质因地制宜}
-    \begin{tcolorbox}[colback=white,colframe=mygreen,title=两套推断机制]
-    \begin{itemize}
-        \item \textbf{方案 A：针对可微分模型 (如神经网络)}
-        \begin{itemize}
-            \item 利用梯度作为优化约束，提出 \textbf{PGDA (梯度分布攻击)}。
-            \item 核心思想：寻找一组虚拟分布，使其产生的梯度与观测梯度最匹配。
-        \end{itemize}
-        \item \textbf{方案 B：针对不可微分模型 (如决策树、逻辑回归)}
-        \begin{itemize}
-            \item 无法通过梯度求导，攻击者通过分析参数更新的数值特征，建立统计关联进行推断。
-        \end{itemize}
-    \end{itemize}
-    \end{tcolorbox}
-\end{frame}
-
-\begin{frame}{3.2 PGDA 工作流：如何从梯度逆推分布？}
+\begin{frame}{3.1 攻击预处理：本地模型参数聚合 (Algorithm 1)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{PGDA (Property/Prior Gradient Distribution Attack)：}
-            \begin{enumerate}
-                \item \textbf{特征重构优化：} 初始化虚拟输入数据分布。
-                \item \textbf{梯度匹配损失：} 计算虚拟数据产生的梯度与截获梯度的距离。
-                \item \textbf{反向传播更新：} 不断调整虚拟数据的分布参数，使 Loss 极小化。
-            \end{enumerate}
+            \textbf{算法背景：} 服务器需要从连续的训练轮次中提炼出一个能代表客户端分布的本地参数 $\theta_k$。
+            
+            \vspace{0.2cm}
+            \textbf{逻辑解析：}
+            \begin{itemize}
+                \item \textbf{行 1-2：} 计算每一轮本地参数 $\theta_k^{(t)}$ 与最终全局模型 $\theta_G$ 的欧氏距离 $C_k^{(t)}$。
+                \item \textbf{行 3-4：} 利用 \textbf{Softmax} 对这些距离进行加权处理，距离越远权重越大（捕捉显著差异）。
+                \item \textbf{行 5：} 得到聚合后的本地模型 $\theta_k$，作为后续攻击的输入。
+            \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-                \includegraphics[width=\textwidth]{fig_pgda.png}
+                \includegraphics[width=\textwidth]{TKDE2024pic/alg1_agg.png}
             \end{center}
         \end{column}
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.3 PGDA 核心：基于梯度匹配的数学优化}
+\begin{frame}{3.2 方案 A：针对可微模型的 PGD 攻击 (Algorithm 2)}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{Projected Gradient Descent Attack (PGDA)：}
+            \begin{enumerate}
+                \item \textbf{初始化 (行 3)：} 随机采样起始分布 $x_0$。
+                \item \textbf{梯度匹配 (行 5-7)：} 
+                \begin{itemize}
+                    \item 计算 Loss 对输入数据的梯度。
+                    \item 通过投影梯度下降更新虚拟分布，使其产生的梯度逼近截获的真实梯度。
+                \end{itemize}
+                \item \textbf{抗噪扰动 (行 8-13)：} 引入高斯扰动并进行一致性校验，筛选出真正鲁棒的合成样本，从而重构整体分布。
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=\textwidth]{TKDE2024pic/alg2_pgda.png}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{3.3 方案 B：针对不可微模型的通用攻击 (Algorithm 3)}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{Generic Distribution Inference Attack：}
+            \begin{itemize}
+                \item \textbf{挑战：} 树模型等不可微模型无法直接求导。
+                \item \textbf{搜索策略 (Search)：} 采用启发式搜索。
+                \item \textbf{自适应调整：}
+                \begin{itemize}
+                    \item \textbf{行 9-11：} 如果多次合成失败，则放松阈值 $\tau_{min}$。
+                    \item \textbf{行 29-30：} 如果拒绝率过高，则动态缩小搜索空间维度 $d$。
+                \end{itemize}
+                \item \textbf{目标：} 在离散/不可微的参数空间中寻找最优分布近似。
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=0.9\textwidth]{TKDE2024pic/alg3_generic.png}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{3.4 PGDA 数学本质：基于梯度匹配的优化}
     攻击者求解以下优化问题来逼近真实分布：
     \begin{equation}
         \min_{\mathbf{D}_{dummy}} \mathcal{L}_{match} = \left\| \nabla W(\mathbf{D}_{dummy}, \theta) - \nabla W_{intercepted} \right\|^2 + \alpha \cdot \mathcal{R}(\mathbf{D}_{dummy})
     \end{equation}
     
     \begin{itemize}
-        \item $\nabla W_{intercepted}$：截获的真实梯度更新。
+        \item $\nabla W_{intercepted}$：中心服务器截获的真实梯度更新。
         \item $\mathbf{D}_{dummy}$：攻击者构造的虚拟数据分布参数。
         \item $\mathcal{R}(\cdot)$：正则化项，用于确保生成分布的合理性。
     \end{itemize}
     
-    \textbf{关键洞察：} 该优化过程不涉及具体样本还原，只关注分布级别的参数。
+    \textbf{关键洞察：} 该过程不仅能还原标签比例，还能通过梯度信息反推出特征维度的统计量。
 \end{frame}
 
 % ==========================================
@@ -173,7 +205,7 @@
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-                \includegraphics[width=\textwidth]{fig:result.png}
+                \includegraphics[width=\textwidth]{TKDE2024pic/fig:result.png}
             \end{center}
         \end{column}
     \end{columns}
@@ -187,7 +219,7 @@
     \begin{tcolorbox}[colback=blue!5,colframe=myblue,title=核心结论 (Takeaways)]
         \begin{itemize}
             \item \textbf{隐私保护的错位：} 跨孤岛场景下，“宏观分布”往往比“微观记录”更具商业敏感性，但现有防御却无能为力。
-            \item \textbf{PGDA 的威力：} 首次证明了无需任何辅助数据，服务器就能以极高精度还原本地数据分布。
+            \item \textbf{攻击普适性：} 无论模型是否可微，服务器均能通过截获的更新信息高精度还原数据分布。
         \end{itemize}
     \end{tcolorbox}
 \end{frame}
