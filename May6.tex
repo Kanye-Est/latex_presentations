@@ -147,7 +147,7 @@
     \textbf{初步结论：} 一次神经元的互换，导致当前层的权重变成了 $\tilde{W}^{(i)} = P W^{(i)}$，偏置变成了 $\tilde{b}^{(i)} = P b^{(i)}$。由于矩阵左乘，这表现为\textbf{行交换 (Row Swapping)}。
 \end{frame}
 
-\begin{frame}{2.5 数学推导 (下)：联动补偿与特征偏移}
+\begin{frame}{2.5 数学推导 (下)：联动补偿与参数错位}
     但是，网络是一个整体。第 $i$ 层神经元被打乱了，下一层 ($i+1$ 层) 接收到的输入变成了 $\tilde{h}^{(i)}$。
     为了保证网络\textbf{最终的分类输出完全不变}，第 $i+1$ 层的权重必须进行补偿：
 
@@ -164,28 +164,28 @@
     由此得出 \textcolor{myred}{$\tilde{W}^{(i+1)} = W^{(i+1)} P^T$}。由于矩阵右乘，这表现为\textbf{列交换 (Column Swapping)}。
 
     \vspace{0.2cm}
-    \textbf{级联效应：} 局部神经元的位置互换 $P$，会导致当前层权重\textbf{行交换}，下一层权重\textbf{列交换}。功能完全等效的模型，在参数空间上产生了极大的表示差异。
+    \textbf{连锁反应：} 一次简单的神经元位置互换 $P$，会导致当前层权重\textbf{行交换}，下一层权重\textbf{列交换}。功能完全等效的模型，在参数空间上已经产生了巨大的差异。
 \end{frame}
 
-\begin{frame}{2.6 表示学习的困境与目标}
-    \textbf{将数学特性映射至属性推断 (PIA) 场景：}
+\begin{frame}{2.6 属性推断的困境与破局目标}
+    \textbf{将数学推导映射回属性推断 (PIA) 场景：}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
             \begin{itemize}
-                \item \textbf{分类器学习困境：} 
+                \item \textbf{Meta-Classifier 的学习困境：} 
                 前述推导证实，参数的展平（Flatten）隐含了错综复杂的行/列交换。
-                \item 面对高维且庞大的排列假设空间，代表宏观属性分布的微弱信号，被高方差的排列噪音所掩盖，导致元模型难以收敛与泛化。
+                \item 面对如此庞大的排列空间，代表微弱属性的特征信号被排列噪音完全掩盖，导致元分类器难以学习到有效规律。
             \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
-            \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=优化目标 (Objective)]
-                我们需要设计一种特征表示函数 $\mathcal{F}(\text{weights})$，使得无论网络内部经历怎样的排列矩阵 $P$ 变换，其提取的特征始终保持恒定：\\
+            \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=优化目标 (Our Goal)]
+                我们需要设计一种映射函数 $\mathcal{F}(\text{weights})$，使得无论网络内部经历怎样的排列矩阵 $P$ 变换，其输出的特征始终保持恒定：\\
                 \vspace{0.2cm}
                 \centerline{$\mathcal{F}(W^{(i)}, W^{(i+1)}) \equiv \mathcal{F}(PW^{(i)}, W^{(i+1)}P^T)$}
                 \vspace{0.2cm}
                 
-                \textbf{这即为接下来的核心方法：}\\
+                \textbf{这也就是接下来要介绍的核心技术：}\\
                 \textbf{Permutation Invariant Representation}
             \end{tcolorbox}
         \end{column}
@@ -196,17 +196,17 @@
 \section{3. 破局之道：设计排列不变表示}
 % ==========================================
 
-\begin{frame}{3.1 启发式排序机制 (Heuristic Node Sorting)}
-    \textbf{核心思路：在特征展平前，基于给定的启发式指标对神经元进行强制重排对齐。}
+\begin{frame}{3.1 解决方案一：强制节点排序 (Node Sorting)}
+    \textbf{核心思路：在参数展平前，利用固定规则对打乱的神经元进行强制重排对齐。}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{以图 4 的 Canonical Form 为例：}
+            \textbf{以图 4 为例：}
             \begin{enumerate}
                 \setlength{\itemsep}{8pt}
-                \item \textbf{指标度量：} 按入边权重绝对值求和（L1范数）。图(a)中，$n_1^1$ 的范数 $5.5 > n_2^1$ 的 $4.0$。
-                \item \textbf{同层重排：} 按指标降序排列神经元。图(b)将原 $n_2^1$ 和 $n_1^1$ 进行了行交换。
-                \item \textbf{层间补偿：} 为保证前向推断输出不变，下一层输入权重矩阵必须执行\textbf{同步的列交换}（注意右图中权值 $0.3$ 和 $2.4$ 连线的交叉）。
+                \item \textbf{制定排序规则：} 按入边权重绝对值求和（如 L1 范数）。图(a)中，$n_1^1$ 的权和 $5.5 > n_2^1$ 的 $4.0$。
+                \item \textbf{执行同层重排：} 按权和从大到小对神经元重新排序。图(b)将原 $n_2^1$ 和 $n_1^1$ 进行了行交换。
+                \item \textbf{同步列交换补偿：} 为保证网络输出不变，下一层权重必须同步执行列交换（注意右图 $0.3$ 和 $2.4$ 连线的交叉）。
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
@@ -217,20 +217,20 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.2 启发式排序机制的脆弱性 (Fragility of Sorting)}
-    \textbf{实证分析表明，启发式节点排序机制存在严重的数值不稳定性。}
+\begin{frame}{3.2 排序法的局限：脆弱的稳定性 (Fragility)}
+    \textbf{实操表明，这种依赖数值大小的排序方法存在严重的不稳定性。}
     
     \begin{itemize}
         \setlength{\itemsep}{8pt}
-        \item \textbf{数值微扰放大：} 假设神经元 A 的 L1 范数为 \textbf{1.501}，神经元 B 为 \textbf{1.500}。排序策略将强制 A 排在 B 之前。
-        \item \textbf{排序抖动 (Sorting Jitter)：} 鉴于 SGD 优化的固有随机性，在同分布训练的另一影子模型中，A 的范数可能微降至 \textbf{1.499}，B 微升至 \textbf{1.502}。
-        \item \textbf{排列顺序反转：} 仅 $0.003$ 的数值扰动，即导致 A 和 B 的拓扑相对位置发生反转。
-        \item \textbf{特征错位 (Feature Misalignment)：} 这种局部抖动会引发长序列特征的大面积级联错位，导致元分类器在度量样本相似度时再次陷入“距离欺骗”。
+        \item \textbf{微小波动的放大：} 假设神经元 A 的权和为 \textbf{1.501}，神经元 B 为 \textbf{1.500}。排序时 A 必然排在 B 之前。
+        \item \textbf{排序抖动 (Sorting Jitter)：} 由于深度学习训练的随机性，在另一个同分布的影子模型中，A 的权和可能变成了 \textbf{1.499}，B 变成了 \textbf{1.502}。
+        \item \textbf{顺序瞬间反转：} 仅仅因为 \textbf{0.003} 的数值波动，就导致 A 和 B 的先后顺序发生反转。
+        \item \textbf{引发大面积错位：} 这种局部的颠倒会引发连锁反应，导致最终展平的一维数组发生大面积错位。元分类器依然会被“距离欺骗”。
     \end{itemize}
     
     \vspace{0.2cm}
-    \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=范式转换 (Paradigm Shift)]
-        基于显式排序的方法本质上仍是对欧氏空间顺序的妥协。为实现鲁棒的属性推断，我们需要一种在数学上\textbf{原生支持无序表示}的模型架构。 $\rightarrow$ \textbf{DeepSets}
+    \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=破局启示]
+        显式的“排序”本质上依然是在强求“顺序”。我们需要一种在数学上\textbf{原生支持无序集合}的方案，彻底告别排序！ $\rightarrow$ \textbf{DeepSets}
     \end{tcolorbox}
 \end{frame}
 
