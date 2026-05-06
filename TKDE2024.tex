@@ -106,27 +106,45 @@
 \section{3. 核心攻击方法论 (Attack Methodology)}
 % ==========================================
 
-\begin{frame}{3.1 分布窃取框架全景图}
+\begin{frame}{3.1 核心攻击方法：PGDA 工作流}
+    论文提出基于优化的 \textbf{PGDA (Property/Prior Gradient Distribution Attack)} 框架来逆推数据分布。
+    
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{针对神经网络的攻击流程：}
+            \textbf{攻击机制解析：}
             \begin{enumerate}
-                \item \textbf{梯度截获：} 服务器收集特定轮次上传的梯度 $g_t$。
-                \item \textbf{特征重构优化：} 利用梯度信息，通过优化算法反向推导类别的先验分布。
-                \item \textbf{标签分布提取：} 结合特征分布和损失函数的解析，精算各标签在孤岛中的具体占比。
+                \item \textbf{前向传播提取特征：} 攻击者初始化虚拟的输入数据分布 (Input data)，分别将其输入到目标客户端的局部模型 (Local model) 与全局模型 (Global model) 中，得到相应的输出表示 $z_k$ 与 $z_G$。
+                \item \textbf{构建损失函数：} 计算两者的差异 $\text{Loss}(z_k, z_G)$，该损失本质上度量了虚拟数据分布产生的梯度与截获的真实梯度之间的距离。
+                \item \textbf{反向传播优化数据：} 通过 Backpropagation，不断更新优化虚拟输入数据的分布参数，直至其产生的梯度与客户端真实上传的梯度一致，从而实现分布重构。
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-            \begin{tikzpicture}
-                \draw[thick, dashed, fill=green!5, rounded corners] (0,0) rectangle (7, 5.0);
-                \node at (3.5, 3.0) {\Large \textbf{\textcolor{mygreen}{[请插入核心 Attack Framework 图]}}};
-                \node at (3.5, 1.5) {\small \textbf{讲解重点：} 展示服务器如何利用 $g_t$};
-                \node at (3.5, 1.0) {\small 一步步反推出特征分布和标签分布的逻辑。};
-            \end{tikzpicture}
+                \includegraphics[width=\textwidth]{fig_pgda.png}
             \end{center}
         \end{column}
     \end{columns}
+\end{frame}
+
+\begin{frame}{3.2 PGDA 核心：基于梯度匹配的分布优化}
+    \begin{tcolorbox}[colback=yellow!5,colframe=orange,title=PGDA 的数学本质]
+        攻击者并非直接还原数据，而是求解一个\textbf{梯度匹配 (Gradient Matching)} 问题。
+    \end{tcolorbox}
+    
+    \textbf{1. 目标函数 (Objective Function)：}
+    攻击者通过最小化以下优化目标来逼近真实分布：
+    \begin{equation}
+        \min_{\mathbf{D}_{dummy}} \mathcal{L}_{match} = \left\| \nabla W(\mathbf{D}_{dummy}, \theta) - \nabla W_{intercepted} \right\|^2 + \alpha \cdot \mathcal{R}(\mathbf{D}_{dummy})
+    \end{equation}
+    
+    \textbf{2. 关键算子解析：}
+    \begin{itemize}
+        \item $\nabla W_{intercepted}$：中心服务器从客户端截获的真实梯度更新。
+        \item $\mathbf{D}_{dummy}$：攻击者构造的虚拟数据分布。
+        \item $\mathcal{R}(\cdot)$：正则化项，用于保证生成的分布符合现实约束。
+    \end{itemize}
+    
+    \textbf{结论：} 当梯度完全匹配时，虚拟分布 $\mathbf{D}_{dummy}$ 即可代表客户端的真实宏观分布，攻击者从而窃取了隐私。
 \end{frame}
 
 % ==========================================
