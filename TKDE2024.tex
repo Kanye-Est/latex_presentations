@@ -41,23 +41,24 @@
 \section{1. 背景与威胁模型 (Background \& Threat Model)}
 % ==========================================
 
-\begin{frame}{1.1 跨孤岛联邦学习 (Cross-Silo FL)}
-    \textbf{应用场景：} 多家机构（如医院、银行等“孤岛”）希望联合训练一个全局模型，但受限于隐私法规，彼此之间\textbf{不直接共享本地数据}。
-    
+\begin{frame}{1.1 跨孤岛联邦学习与威胁模型 (Threat Model)}
     \begin{columns}
-        \begin{column}{0.5\textwidth}
-            \textbf{传统 FL 的隐私承诺：}
+        \begin{column}{0.45\textwidth}
+            \textbf{传统 FL 的隐私错觉：}
             \begin{itemize}
-                \item 客户端在本地计算梯度 (Gradients)。
-                \item 仅将“更新参数”上传给中心服务器聚合。
-                \item \textbf{错觉：} 只要原始数据不出本地，隐私就绝对安全。
+                \item 各参与方（Party 1...N）仅上传模型更新，原始数据不出本地。
+            \end{itemize}
+            \vspace{0.2cm}
+            \textbf{核心威胁 (Honest-but-curious Server)：}
+            \begin{itemize}
+                \item \textbf{非独立同分布 (Non-IID)：} 如图所示，Party 1 和 Party N 的本地数据分布存在极大差异（分别在左侧和右侧）。
+                \item \textbf{分布泄露：} 好奇的中心服务器在聚合全局模型时，通过暗中分析各方上传的特定梯度，即可反向推断出各参与方高度机密的\textbf{本地数据分布特征}。
             \end{itemize}
         \end{column}
-        \begin{column}{0.5\textwidth}
-            \begin{tcolorbox}[colback=red!5,colframe=myred,title=本文提出的核心威胁]
-                \textbf{诚实但好奇的服务器 (Honest-but-curious Server)：}\\
-                中心服务器遵守协议聚合模型，但在暗中截获并分析各机构上传的梯度更新，试图窃取高价值的商业机密——\textbf{本地数据的宏观分布 (Data Distribution)}。
-            \end{tcolorbox}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=\textwidth]{fig_fl_threat.png}
+            \end{center}
         \end{column}
     \end{columns}
 \end{frame}
@@ -178,6 +179,13 @@
 
 \begin{frame}
     \begin{center}
+        \Huge \textbf{Q \& A} \\
+        \vspace{1cm}
+        \Large 感谢聆听！
+    \end{center}
+\end{frame}
+
+\end{document}r}
         \Huge \textbf{Q \& A} \\
         \vspace{1cm}
         \Large 感谢聆听！
