@@ -151,30 +151,42 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.3 方案 B：针对不可微模型的通用攻击 (Algorithm 3)}
+\begin{frame}{3.3 方案 B：针对不可微模型的通用攻击 (1/2)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{Generic Distribution Inference Attack：}
+            \textbf{算法 3：外层合成循环}
             \begin{itemize}
-                \item \textbf{挑战：} 树模型等不可微模型无法直接求导。
-                \item \textbf{搜索策略 (Search)：} 采用启发式搜索。
-                \item \textbf{自适应调整：}
-                \begin{itemize}
-                    \item \textbf{行 9-11：} 如果多次合成失败，则放松阈值 $\tau_{min}$。
-                    \item \textbf{行 29-30：} 如果拒绝率过高，则动态缩小搜索空间维度 $d$。
-                \end{itemize}
-                \item \textbf{目标：} 在离散/不可微的参数空间中寻找最优分布近似。
+                \item \textbf{目标：} 合成满足分布特征的数据集 $S$。
+                \item \textbf{自适应阈值 (行 9-11)：} 如果在一个阈值下合成失败次数过多，算法会动态放松阈值 $\tau_{min}$，扩大搜索容忍度。
+                \item \textbf{逻辑：} 这是一个不断迭代的过程，直至合成出足够数量的有效样本。
             \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
             \begin{center}
-                \includegraphics[width=0.9\textwidth]{TKDE2024pic/alg3_generic.png}
+                \includegraphics[width=\textwidth, trim=0 300 0 0, clip]{TKDE2024pic/alg3_generic.png}
             \end{center}
         \end{column}
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.4 PGDA 数学本质：基于梯度匹配的优化}
+\begin{frame}{3.4 方案 B：针对不可微模型的通用攻击 (2/2)}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{算法 3：核心 Search 函数}
+            \begin{itemize}
+                \item \textbf{启发式搜索：} 在高维特征空间中随机采样并寻找能减小 Loss 的更优分布解。
+                \item \textbf{维度缩减 (行 29-30)：} 如果连续多次被拒绝，算法会认为搜索空间过大，从而\textbf{减半特征维度} $d$，通过缩小搜索半径来强迫收敛。
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+                \includegraphics[width=\textwidth, trim=0 0 0 350, clip]{TKDE2024pic/alg3_generic.png}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{3.5 PGDA 数学本质：基于梯度匹配的优化}
     攻击者求解以下优化问题来逼近真实分布：
     \begin{equation}
         \min_{\mathbf{D}_{dummy}} \mathcal{L}_{match} = \left\| \nabla W(\mathbf{D}_{dummy}, \theta) - \nabla W_{intercepted} \right\|^2 + \alpha \cdot \mathcal{R}(\mathbf{D}_{dummy})
@@ -185,8 +197,6 @@
         \item $\mathbf{D}_{dummy}$：攻击者构造的虚拟数据分布参数。
         \item $\mathcal{R}(\cdot)$：正则化项，用于确保生成分布的合理性。
     \end{itemize}
-    
-    \textbf{关键洞察：} 该过程不仅能还原标签比例，还能通过梯度信息反推出特征维度的统计量。
 \end{frame}
 
 % ==========================================
@@ -195,7 +205,7 @@
 
 \begin{frame}{4.1 击穿最强防御：为什么 DP 失效了？}
     \begin{columns}
-        \begin{column}{0.45\textwidth}
+        \begin{column}{0.5\textwidth}
             \textbf{实验观察：}
             \begin{itemize}
                 \item \textbf{个体的干扰：} 噪音很大时，单个样本的特征被完全模糊。
@@ -203,9 +213,13 @@
                 \item \textbf{结论：} 零均值的高斯噪音在聚合过程中会相互抵消，宏观分布特征对 DP 噪音具有天然的鲁棒性。
             \end{itemize}
         \end{column}
-        \begin{column}{0.55\textwidth}
+        \begin{column}{0.5\textwidth}
             \begin{center}
-                \includegraphics[width=\textwidth]{TKDE2024pic/fig:result.png}
+                \begin{tikzpicture}
+                    \draw[thick, dashed, fill=yellow!10, rounded corners] (0,0) rectangle (6, 4.0);
+                    \node at (3, 2.5) {\Large \textbf{[请在此处插入]}};
+                    \node at (3, 1.5) {\Large \textbf{[TKDE 2024 结果图]}};
+                \end{tikzpicture}
             \end{center}
         \end{column}
     \end{columns}
