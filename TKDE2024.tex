@@ -1,0 +1,187 @@
+\documentclass[aspectratio=169]{beamer} % 使用 16:9 宽屏
+
+% 引入必要的宏包
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath}
+\usepackage{amssymb} 
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tcolorbox}
+\usepackage{tikz} 
+\usepackage{pifont} 
+
+% 主题与颜色设置
+\usetheme{Madrid} 
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{} 
+\setbeamertemplate{footline}[frame number] 
+
+% 自定义高亮颜色
+\definecolor{myblue}{RGB}{33, 113, 181}
+\definecolor{myred}{RGB}{203, 24, 29}
+\definecolor{mygreen}{RGB}{44, 160, 44}
+
+\title[Distribution Leakage in Cross-Silo FL]{On Data Distribution Leakage in Cross-Silo Federated Learning}
+\subtitle{2024 TKDE —— 跨孤岛联邦学习中的分布推断攻击}
+\author{文献分享}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Agenda}
+    \tableofcontents[hideallsubsections]
+\end{frame}
+
+% ==========================================
+\section{1. 背景与威胁模型 (Background \& Threat Model)}
+% ==========================================
+
+\begin{frame}{1.1 跨孤岛联邦学习 (Cross-Silo FL)}
+    \textbf{应用场景：} 多家机构（如医院、银行等“孤岛”）希望联合训练一个全局模型，但受限于隐私法规，彼此之间\textbf{不直接共享本地数据}。
+    
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \textbf{传统 FL 的隐私承诺：}
+            \begin{itemize}
+                \item 客户端在本地计算梯度 (Gradients)。
+                \item 仅将“更新参数”上传给中心服务器聚合。
+                \item \textbf{错觉：} 只要原始数据不出本地，隐私就绝对安全。
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \begin{tcolorbox}[colback=red!5,colframe=myred,title=本文提出的核心威胁]
+                \textbf{诚实但好奇的服务器 (Honest-but-curious Server)：}\\
+                中心服务器遵守协议聚合模型，但在暗中截获并分析各机构上传的梯度更新，试图窃取高价值的商业机密——\textbf{本地数据的宏观分布 (Data Distribution)}。
+            \end{tcolorbox}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==========================================
+\section{2. 动机与挑战：从参数到梯度 (Motivation)}
+% ==========================================
+
+\begin{frame}{2.1 战场转移：从单一白盒到联邦交互}
+    与针对单一白盒模型的静态权重推断不同，本篇论文面临着全新的挑战环境：
+    
+    \vspace{0.3cm}
+    \begin{itemize}
+        \setlength{\itemsep}{10pt}
+        \item \textbf{动态的梯度视角：} 攻击者不再拥有最终的静态模型权重，而是只能观察到训练过程中每一轮的\textbf{动态梯度更新 ($\Delta W$)}。
+        \item \textbf{无先验知识要求 (Zero Prior Knowledge)：} 传统的属性推断通常需要攻击者具备辅助数据集来训练影子模型，而本文致力于在无辅助数据的情况下直接恢复分布。
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{2.2 为什么差分隐私 (DP) 防不住分布泄露？}
+    工业界通常采用 \textbf{DP-SGD} 来防御反演攻击，即在梯度中注入高斯噪音隐藏个体贡献。
+    
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{DP 的盲区 (DP's Blind Spot)：}
+            \begin{itemize}
+                \item \textbf{微观保护：} DP 严格保护了\textbf{特定个体}不被识别。
+                \item \textbf{宏观暴露：} DP 的理论基础在于\textbf{保留群体的统计可用性}。这意味着，代表宏观统计规律的“数据分布”，在加上 DP 噪音后，依然能被强力的推断算法重构出来！
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+            \begin{tikzpicture}
+                \draw[thick, dashed, fill=blue!5, rounded corners] (0,0) rectangle (7, 4.0);
+                \node at (3.5, 2.5) {\Large \textbf{\textcolor{myblue}{[请插入 DP 盲区示意图]}}};
+                \node at (3.5, 1.5) {\small \textbf{建议：} 论文中展示个体保护};
+                \node at (3.5, 1.0) {\small 与全局分布泄露对比的图表。};
+            \end{tikzpicture}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==========================================
+\section{3. 核心攻击方法论 (Attack Methodology)}
+% ==========================================
+
+\begin{frame}{3.1 分布窃取框架全景图}
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{针对神经网络的攻击流程：}
+            \begin{enumerate}
+                \item \textbf{梯度截获：} 服务器收集特定轮次上传的梯度 $g_t$。
+                \item \textbf{特征重构优化：} 利用梯度信息，通过优化算法反向推导类别的先验分布。
+                \item \textbf{标签分布提取：} 结合特征分布和损失函数的解析，精算各标签在孤岛中的具体占比。
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+            \begin{tikzpicture}
+                \draw[thick, dashed, fill=green!5, rounded corners] (0,0) rectangle (7, 5.0);
+                \node at (3.5, 3.0) {\Large \textbf{\textcolor{mygreen}{[请插入核心 Attack Framework 图]}}};
+                \node at (3.5, 1.5) {\small \textbf{讲解重点：} 展示服务器如何利用 $g_t$};
+                \node at (3.5, 1.0) {\small 一步步反推出特征分布和标签分布的逻辑。};
+            \end{tikzpicture}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==========================================
+\section{4. 实验评估与防御分析 (Evaluation \& Defense)}
+% ==========================================
+
+\begin{frame}{4.1 突破最强防御：DP-SGD 实验验证}
+    \textbf{本论文最具冲击力的实证结果之一：}
+    
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{防御失效：}
+            \begin{itemize}
+                \item 在客户端开启 DP-SGD 并注入不同级别的隐私噪音（不同 $\epsilon$ 值）后执行攻击。
+                \item \textbf{结论：} 尽管噪音足以掩盖单一样本特征，但由于“分布”是全局统计量，对零均值噪音具有天然的鲁棒性。攻击者依然能精准测算出客户端数据分布。
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \begin{center}
+            \begin{tikzpicture}
+                \draw[thick, dashed, fill=gray!10, rounded corners] (0,0) rectangle (7, 4.5);
+                \node at (3.5, 2.5) {\Large \textbf{\textcolor{black}{[请插入 DP 噪音级别与误差曲线图]}}};
+                \node at (3.5, 1.5) {\small \textbf{解读：} 展示即使隐私预算 $\epsilon$ 很小，};
+                \node at (3.5, 1.0) {\small 分布推断的准确率依然居高不下。};
+            \end{tikzpicture}
+            \end{center}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ==========================================
+\section{5. 总结与启示 (Conclusion)}
+% ==========================================
+
+\begin{frame}{5.1 研究启示与未来防御方向}
+    \begin{tcolorbox}[colback=blue!5,colframe=myblue,title=核心结论 (Takeaways)]
+        \begin{itemize}
+            \item \textbf{盲点暴露：} 现有的联邦学习隐私保护（如 DP）主要聚焦于“微观个体”，严重忽视了跨孤岛场景下“宏观分布”泄露的商业危害。
+            \item \textbf{梯度的双刃剑：} 梯度不仅传递了模型优化的方向，也潜藏了丰富的数据全局统计特征。
+        \end{itemize}
+    \end{tcolorbox}
+    
+    \vspace{0.3cm}
+    \textbf{未来的潜在防御思路：}
+    \begin{itemize}
+        \item 针对梯度的分布混淆技术 (Distribution Obfuscation)。
+        \item 结合安全多方计算 (SMPC) 的高级聚合策略。
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \begin{center}
+        \Huge \textbf{Q \& A} \\
+        \vspace{1cm}
+        \Large 感谢聆听！
+    \end{center}
+\end{frame}
+
+\end{document}
