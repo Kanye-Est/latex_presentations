@@ -147,10 +147,10 @@
     \textbf{初步结论：} 一次神经元的互换，导致当前层的权重变成了 $\tilde{W}^{(i)} = P W^{(i)}$，偏置变成了 $\tilde{b}^{(i)} = P b^{(i)}$。由于矩阵左乘，这表现为\textbf{行交换 (Row Swapping)}。
 \end{frame}
 
-\begin{frame}{2.5 数学推导 (下)：联动补偿与参数雪崩}
+\begin{frame}{2.5 数学推导 (下)：联动补偿与特征偏移}
     但是，网络是一个整体。第 $i$ 层神经元被打乱了，下一层 ($i+1$ 层) 接收到的输入变成了 $\tilde{h}^{(i)}$。
     为了保证网络\textbf{最终的分类输出完全不变}，第 $i+1$ 层的权重必须进行补偿：
-    
+
     \begin{equation}
         \text{原始下一层前向：} \quad W^{(i+1)} h^{(i)}
     \end{equation}
@@ -162,30 +162,30 @@
         \tilde{W}^{(i+1)} P h^{(i)} = W^{(i+1)} (P^T P) h^{(i)} = (W^{(i+1)} P^T) (P h^{(i)})
     \end{equation}
     由此得出 \textcolor{myred}{$\tilde{W}^{(i+1)} = W^{(i+1)} P^T$}。由于矩阵右乘，这表现为\textbf{列交换 (Column Swapping)}。
-    
+
     \vspace{0.2cm}
-    \textbf{后果：} 一次简单的神经元位置互换 $P$，会导致当前层权重\textbf{行交换}，下一层权重\textbf{列交换}。功能完全等效的模型，在参数空间上已经“面目全非”！
+    \textbf{级联效应：} 局部神经元的位置互换 $P$，会导致当前层权重\textbf{行交换}，下一层权重\textbf{列交换}。功能完全等效的模型，在参数空间上产生了极大的表示差异。
 \end{frame}
 
-\begin{frame}{2.6 聚焦属性推断：困境与破局目标}
-    \textbf{现在我们将数学推导映射回属性推断 (PIA) 场景：}
+\begin{frame}{2.6 表示学习的困境与目标}
+    \textbf{将数学特性映射至属性推断 (PIA) 场景：}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
             \begin{itemize}
-                \item \textbf{Meta-Classifier 的梦魇：} 
-                刚才的数学推导证实了，模型权重的展平（Flatten）包含了错综复杂的行/列交换。
-                \item 面对如此巨大的排列空间，原本代表微弱属性分布的特征信号，被噪音产生了不可逾越的鸿沟（距离欺骗）。
+                \item \textbf{分类器学习困境：} 
+                前述推导证实，参数的展平（Flatten）隐含了错综复杂的行/列交换。
+                \item 面对高维且庞大的排列假设空间，代表宏观属性分布的微弱信号，被高方差的排列噪音所掩盖，导致元模型难以收敛与泛化。
             \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
-            \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=我们需要做什么？(Our Goal)]
-                我们必须设计一种映射函数（或特征表示） $\mathcal{F}(\text{weights})$，使得无论内部经历怎样的排列矩阵 $P$ 变换，其输出的特征都是唯一且恒定的：\\
+            \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=优化目标 (Objective)]
+                我们需要设计一种特征表示函数 $\mathcal{F}(\text{weights})$，使得无论网络内部经历怎样的排列矩阵 $P$ 变换，其提取的特征始终保持恒定：\\
                 \vspace{0.2cm}
                 \centerline{$\mathcal{F}(W^{(i)}, W^{(i+1)}) \equiv \mathcal{F}(PW^{(i)}, W^{(i+1)}P^T)$}
                 \vspace{0.2cm}
                 
-                \textbf{这也就是接下来要介绍的核心技术：}\\
+                \textbf{这即为接下来的核心方法：}\\
                 \textbf{Permutation Invariant Representation}
             \end{tcolorbox}
         \end{column}
@@ -196,17 +196,17 @@
 \section{3. 破局之道：设计排列不变表示}
 % ==========================================
 
-\begin{frame}{3.1 解决方案一：强制节点排序 (视觉化图解)}
-    \textbf{核心思路：在参数展平前，基于固定规则对神经元进行强制重排对齐。}
+\begin{frame}{3.1 启发式排序机制 (Heuristic Node Sorting)}
+    \textbf{核心思路：在特征展平前，基于给定的启发式指标对神经元进行强制重排对齐。}
     
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{以图 4 为例：}
+            \textbf{以图 4 的 Canonical Form 为例：}
             \begin{enumerate}
                 \setlength{\itemsep}{8pt}
-                \item \textbf{计算指标：} 按入边权重绝对值求和。图(a)中，$n_1^1$ 权和 $5.5 > n_2^1$ 的 $4.0$。
-                \item \textbf{执行行交换：} 按指标从大到小重排。图(b)将原 $n_2^1$ 和 $n_1^1$ 上下互换。
-                \item \textbf{列交换补偿：} 为保证输出不变，下一层权重必须\textbf{同步列交换}（注意右图 $0.3$ 和 $2.4$ 连线的交叉）。
+                \item \textbf{指标度量：} 按入边权重绝对值求和（L1范数）。图(a)中，$n_1^1$ 的范数 $5.5 > n_2^1$ 的 $4.0$。
+                \item \textbf{同层重排：} 按指标降序排列神经元。图(b)将原 $n_2^1$ 和 $n_1^1$ 进行了行交换。
+                \item \textbf{层间补偿：} 为保证前向推断输出不变，下一层输入权重矩阵必须执行\textbf{同步的列交换}（注意右图中权值 $0.3$ 和 $2.4$ 连线的交叉）。
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
@@ -217,20 +217,20 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{3.2 排序法的致命弱点：极其脆弱的稳定性}
-    \textbf{为什么实操中这个看起来很合理的方法被抛弃了？因为它的数值稳定性极差。}
+\begin{frame}{3.2 启发式排序机制的脆弱性 (Fragility of Sorting)}
+    \textbf{实证分析表明，启发式节点排序机制存在严重的数值不稳定性。}
     
     \begin{itemize}
         \setlength{\itemsep}{8pt}
-        \item \textbf{微小扰动被无限放大：} 假设神经元 A 的权重和是 \textbf{1.501}，神经元 B 是 \textbf{1.500}。按规则，A 应该排在 B 之前。
-        \item \textbf{“排序抖动” (Sorting Jitter)：} 由于深度学习训练天然存在微小的随机性，在另一个结构相同的影子模型中，A 的权和可能变成了 \textbf{1.499}，B 变成了 \textbf{1.502}。
-        \item \textbf{瞬间反转：} 仅仅因为 \textbf{0.003} 的数值波动，导致 A 和 B 的先后顺序瞬间颠倒！
-        \item \textbf{灾难后果：} 这种颠倒会引发连锁反应，导致最终展平的一维数组发生大面积的错位。元分类器依然会被“距离欺骗”。
+        \item \textbf{数值微扰放大：} 假设神经元 A 的 L1 范数为 \textbf{1.501}，神经元 B 为 \textbf{1.500}。排序策略将强制 A 排在 B 之前。
+        \item \textbf{排序抖动 (Sorting Jitter)：} 鉴于 SGD 优化的固有随机性，在同分布训练的另一影子模型中，A 的范数可能微降至 \textbf{1.499}，B 微升至 \textbf{1.502}。
+        \item \textbf{排列顺序反转：} 仅 $0.003$ 的数值扰动，即导致 A 和 B 的拓扑相对位置发生反转。
+        \item \textbf{特征错位 (Feature Misalignment)：} 这种局部抖动会引发长序列特征的大面积级联错位，导致元分类器在度量样本相似度时再次陷入“距离欺骗”。
     \end{itemize}
     
     \vspace{0.2cm}
-    \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=破局启示]
-        “排序”本质上还是在向“顺序”妥协。我们需要一种在数学上\textbf{原生支持无序}的方案，彻底告别排序！ $\rightarrow$ \textbf{DeepSets}
+    \begin{tcolorbox}[colback=yellow!10,colframe=orange,title=范式转换 (Paradigm Shift)]
+        基于显式排序的方法本质上仍是对欧氏空间顺序的妥协。为实现鲁棒的属性推断，我们需要一种在数学上\textbf{原生支持无序表示}的模型架构。 $\rightarrow$ \textbf{DeepSets}
     \end{tcolorbox}
 \end{frame}
 
@@ -275,11 +275,11 @@
 \begin{frame}{3.5 DeepSets 架构工作流 (Figure 5)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
-            \textbf{化矩阵为“无序集合”：}
+            \textbf{将参数矩阵转化为集合表示：}
             \begin{enumerate}
                 \item \textbf{Flattening：} 提取节点 $i$ 的入边权重 $w_{i*}^t$、偏置 $b_i^t$ 及其上下文 $N^{t-1}$ 打包为一个独立向量。
                 \item \textbf{Processing ($\phi$)：} 通过 $\phi_t$ 网络独立提取节点特征 $N_i^t$。
-                \item \textbf{Summation ($\Sigma$)：} \textcolor{myred}{\textbf{核心魔法！}} 对同层所有节点特征进行\textbf{求和}得到 $L_t$。由于 $A+B=B+A$，强行抹除了节点的排列顺序噪音。
+                \item \textbf{Summation ($\Sigma$)：} \textbf{特征聚合：} 对同层所有节点特征进行\textbf{求和}得到 $L_t$。由于 $A+B=B+A$，在数学层面消除了节点排列顺序产生的空间位置噪音。
                 \item \textbf{Prediction ($\rho$)：} 拼接各层特征得出 $\mathcal{F}$，送入 $\rho$ 分类器预测最终属性 $P / \overline{P}$。
             \end{enumerate}
         \end{column}
@@ -324,7 +324,7 @@
                 \item \textbf{Data Generation:} 划分带属性 ($D_1$) 和不带属性 ($D_0$) 的辅助数据集。
                 \item \textbf{Shadow Training:} 批量训练大量结构相同的影子模型 (Shadow Models)。
                 \item \textbf{Meta Training:} 提取权重 $\rightarrow$ 经过 DeepSets 提纯 $\rightarrow$ 训练二分类元模型。
-                \item \textbf{Inference:} 对 Target Model 进行一键推断。
+                \item \textbf{Inference:} 对 Target Model 进行属性推断。
             \end{enumerate}
         \end{column}
         \begin{column}{0.55\textwidth}
@@ -335,15 +335,15 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{4.2 实验结果：降维打击 (Evaluation: Baseline vs. DeepSets)}
+\begin{frame}{4.2 性能评估 (Evaluation: Baseline vs. DeepSets)}
     \begin{columns}
         \begin{column}{0.45\textwidth}
             \textbf{讲解重点分析：}
             \begin{itemize}
                 \setlength{\itemsep}{10pt}
-                \item \textbf{Flatten Baseline:} 准确率往往徘徊在 50\%-60\%（基本等同于瞎猜）。
+                \item \textbf{Flatten Baseline:} 准确率往往徘徊在 50\%-60\%（表现接近随机猜测）。
                 \item \textbf{Node Sorting:} 准确率显著提升至 75\%-85\%，证明解决排列问题是有效的。
-                \item \textbf{DeepSets:} 达到 \textbf{85\%-100\%} 的极高准确率，且对影子模型数量的需求更小！
+                \item \textbf{DeepSets:} 达到 \textbf{85\%-100\%} 的显著准确率提升，且对影子模型数量的需求更小！
             \end{itemize}
         \end{column}
         \begin{column}{0.55\textwidth}
@@ -387,7 +387,7 @@
 % ==========================================
 
 \begin{frame}{5. 组会代码复现展示计划 (Live Demo Plan)}
-    为了让大家直观感受攻击威力，我将在后续环节展示 Pytorch 代码级别的复现：
+    为了验证上述理论方案的有效性，我将在后续环节展示 Pytorch 代码级别的复现：
     
     \begin{enumerate}
         \setlength{\itemsep}{8pt}
@@ -395,9 +395,9 @@
         \item \textbf{影子模型工厂：} 运行脚本，自动化训练数百个 2-layer FCNN。
         \item \textbf{算法对比对抗：}
         \begin{itemize}
-            \item [$\rightarrow$] 运行 Flatten Baseline 攻击（展示其失败）。
+            \item [$\rightarrow$] 运行 Flatten Baseline 攻击（展示其在排列噪音下的性能瓶颈）。
             \item [$\rightarrow$] 运行 Node Sorting 攻击（展示性能提升）。
-            \item [$\rightarrow$] 运行 DeepSets 攻击架构（展示最终的降维打击效果）。
+            \item [$\rightarrow$] 运行 DeepSets 攻击架构（展示其在属性推断任务上的优越性能）。
         \end{itemize}
     \end{enumerate}
 \end{frame}
