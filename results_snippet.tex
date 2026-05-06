@@ -8,14 +8,15 @@
         \toprule
         Method & Accuracy & Precision & Recall \\
         \midrule
-        Flatten & 0.50 $\pm$ 0.00 & 0.50 $\pm$ 0.00 & 1.00 $\pm$ 0.00 \\
-        \textbf{NodeSorting} & \textbf{0.67 $\pm$ 0.00} & 1.00 $\pm$ 0.00 & 0.33 $\pm$ 0.00 \\
-        DeepSets & 0.50 $\pm$ 0.00 & 0.50 $\pm$ 0.00 & 1.00 $\pm$ 0.00 \\
+
+        Flatten & 0.72 $\pm$ 0.00 & 0.69 $\pm$ 0.01 & 0.82 $\pm$ 0.02 \\
+        NodeSorting & 0.75 $\pm$ 0.05 & 0.74 $\pm$ 0.04 & 0.78 $\pm$ 0.08 \\
+        \textbf{DeepSets} & \textbf{0.98 $\pm$ 0.01} & 0.99 $\pm$ 0.01 & 0.97 $\pm$ 0.03 \\
         \bottomrule
     \end{tabular}
     \vspace{0.4cm}
 
-    \small \textit{n = 1 seeds, 30 shadow models / seed, RTX 4060 Laptop GPU.}
+    \small \textit{n = 3 seeds, 500 shadow models / seed, RTX 4060 Laptop GPU.}
 
     \vspace{0.2cm}
     \begin{tcolorbox}[colback=blue!5,colframe=myblue,title=核心观察]
@@ -26,8 +27,8 @@
 
 \begin{frame}{5.2 实验复现 — 可视化对比}
     \centering
-    \includegraphics[width=0.92\textwidth,keepaspectratio]{../PIA/outputs/multiseed_20260506_191356/comparison_errorbars.png}
+    \includegraphics[width=0.92\textwidth,keepaspectratio]{../PIA/outputs/multiseed_20260506_191903/comparison_errorbars.png}
 
     \vspace{0.2cm}
-    \small \textit{Error bar = standard deviation across 1 seeds.}
+    \small \textit{Error bar = standard deviation across 3 seeds.}
 \end{frame}
